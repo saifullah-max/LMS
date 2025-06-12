@@ -249,7 +249,7 @@ export default function TeacherDashboard() {
                   }))
                 }
                 placeholder="Search & select…"
-                className="text-gray-900"
+                className="text-black"
                 classNamePrefix="react-select"
               />
               <button

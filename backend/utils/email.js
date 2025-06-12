@@ -43,4 +43,13 @@ LMS Team`,
   console.log("Submission confirmation email sent:", info.messageId);
 }
 
-module.exports = { sendSubmissionEmail };
+async function sendEmail({ to, subject, text }) {
+  return transporter.sendMail({
+    from: process.env.EMAIL,
+    to,
+    subject,
+    text,
+  });
+}
+
+module.exports = { sendSubmissionEmail, sendEmail };

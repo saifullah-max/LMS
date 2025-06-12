@@ -17,18 +17,31 @@ export default function AdminUsers() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const LIMIT = 5;
+
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const BASE = import.meta.env.VITE_API_URL || "http://localhost:8001/api";
 
-  // Fetch users
+  // Fetch paginated users
   useEffect(() => {
     (async () => {
+      setLoading(true);
+      setError("");
       try {
-        const res = await axios.get(`${BASE}/admin/users`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setUsers(res.data);
+        const res = await axios.get(
+          `${BASE}/admin/users?page=${page}&limit=${LIMIT}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const data = res.data;
+        if (!Array.isArray(data.users))
+          throw new Error("Invalid response format");
+        setUsers(data.users);
+        setTotalPages(Math.ceil(data.total / LIMIT));
       } catch (err) {
         console.error(err);
         setError("Failed to load users.");
@@ -36,7 +49,7 @@ export default function AdminUsers() {
         setLoading(false);
       }
     })();
-  }, [token, BASE]);
+  }, [page, token, BASE]);
 
   // Fetch courses
   useEffect(() => {
@@ -63,10 +76,14 @@ export default function AdminUsers() {
       await axios.post(`${BASE}/admin/users`, newUser, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const { data } = await axios.get(`${BASE}/admin/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setUsers(data);
+      const res = await axios.get(
+        `${BASE}/admin/users?page=${page}&limit=${LIMIT}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setUsers(res.data.users);
+      setTotalPages(Math.ceil(res.data.total / LIMIT));
       setNewUser({ name: "", email: "", password: "", role: "student" });
     } catch (err) {
       console.error(err);
@@ -81,9 +98,13 @@ export default function AdminUsers() {
       await axios.patch(
         `${BASE}/admin/users/${userId}`,
         { role },
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
-      setUsers((u) => u.map((x) => (x._id === userId ? { ...x, role } : x)));
+      setUsers((prev) =>
+        prev.map((u) => (u._id === userId ? { ...u, role } : u))
+      );
     } catch (err) {
       console.error(err);
       setError("Failed to update role");
@@ -92,38 +113,33 @@ export default function AdminUsers() {
 
   if (loading)
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center font-sans">
+      <div className="min-h-screen bg-gray-900 flex justify-center items-center">
         <p className="text-gray-300 text-lg">Loading users…</p>
       </div>
     );
   if (error)
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center font-sans">
+      <div className="min-h-screen bg-gray-900 flex justify-center items-center">
         <p className="text-red-500 text-lg">{error}</p>
       </div>
     );
 
   return (
     <div className="min-h-screen bg-gray-900 p-6 font-sans">
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-semibold text-lime-400">
-          User Management
-        </h1>
-
-        <div className="flex items-center space-x-4">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-lime-400">User Management</h1>
+        <div className="flex items-center gap-4">
           <Link
             to="/admin/analytics"
-            className="px-4 py-2 bg-lime-400 text-black rounded hover:bg-lime-500 transition"
+            className="px-4 py-2 bg-lime-400 text-black rounded hover:bg-lime-500"
           >
             View Analytics
           </Link>
-
-          {/* Course Selector */}
           <select
             value={selectedCourse}
             onChange={(e) => setSelectedCourse(e.target.value)}
-            className="px-4 py-2 bg-gray-700 text-gray-200 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-400"
+            className="px-4 py-2 bg-gray-700 text-white border border-gray-600 rounded"
           >
             <option value="">Select Course</option>
             {courses.map((c) => (
@@ -132,92 +148,70 @@ export default function AdminUsers() {
               </option>
             ))}
           </select>
-
-          {/* Single Button: generates AI-enhanced PDF heatmap + summary */}
           <AdminHeatmapDownload courseId={selectedCourse} />
         </div>
       </div>
 
       {/* Create User Form */}
-      <form
-        onSubmit={createUser}
-        className="mb-8 bg-gray-800 p-6 rounded-lg shadow-lg"
-      >
-        <h2 className="text-xl font-semibold text-lime-400 mb-6">
+      <form onSubmit={createUser} className="bg-gray-800 p-6 rounded-lg mb-8">
+        <h2 className="text-xl text-lime-400 font-semibold mb-4">
           Add New User
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           {["name", "email", "password"].map((f) => (
-            <div key={f} className="space-y-2">
-              <p className="block text-gray-200">
-                {f[0].toUpperCase() + f.slice(1)}
-              </p>
-              <input
-                name={f}
-                type={f === "password" ? "password" : "text"}
-                value={newUser[f]}
-                onChange={handleField}
-                required
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-lime-400 focus:ring-opacity-50"
-                placeholder={
-                  f === "name"
-                    ? "Enter your name"
-                    : f === "email"
-                    ? "Enter your email"
-                    : "Enter password"
-                } // Added placeholder text
-              />
-            </div>
-          ))}
-          <div className="space-y-2">
-            <p className="block text-gray-200">Role</p>
-            <select
-              name="role"
-              value={newUser.role}
+            <input
+              key={f}
+              name={f}
+              type={f === "password" ? "password" : "text"}
+              value={newUser[f]}
               onChange={handleField}
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-lime-400 focus:ring-opacity-50"
-            >
-              <option value="student">Student</option>
-              <option value="teacher">Teacher</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
+              placeholder={f[0].toUpperCase() + f.slice(1)}
+              required
+              className="px-4 py-2 bg-gray-700 border border-gray-600 text-white rounded"
+            />
+          ))}
+          <select
+            name="role"
+            value={newUser.role}
+            onChange={handleField}
+            className="px-4 py-2 bg-gray-700 border border-gray-600 text-white rounded"
+          >
+            <option value="student">Student</option>
+            <option value="teacher">Teacher</option>
+            <option value="admin">Admin</option>
+          </select>
         </div>
         <button
           type="submit"
           disabled={submitting}
-          className="w-full py-3 mt-4 bg-lime-400 text-gray-900 rounded-lg hover:bg-lime-500 transition disabled:opacity-50"
+          className="w-full mt-4 py-2 bg-lime-400 text-black rounded hover:bg-lime-500 disabled:opacity-50"
         >
           {submitting ? "Creating…" : "Create User"}
         </button>
       </form>
 
       {/* Users Table */}
-      <div className="overflow-auto bg-gray-800 rounded-lg shadow-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-700">
+      <div className="overflow-auto bg-gray-800 rounded-lg">
+        <table className="min-w-full text-left">
+          <thead className="bg-gray-700 text-gray-200">
             <tr>
-              {["Name", "Email", "Role", "Change"].map((h) => (
-                <th
-                  key={h}
-                  className="px-6 py-3 text-left text-gray-200 font-semibold"
-                >
-                  {h}
-                </th>
-              ))}
+              <th className="px-4 py-2">Name</th>
+              <th className="px-4 py-2">Email</th>
+              <th className="px-4 py-2">Role</th>
+              <th className="px-4 py-2">Change</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-600">
+          <tbody>
             {users.map((u) => (
-              <tr key={u._id}>
-                <td className="px-6 py-3 text-gray-200">{u.name}</td>
-                <td className="px-6 py-3 text-gray-200">{u.email}</td>
-                <td className="px-6 py-3 text-gray-200">{u.role}</td>
-                <td className="px-6 py-3 text-center">
+              <tr key={u._id} className="border-t border-gray-700 text-white">
+                <td className="px-4 py-2">{u.name}</td>
+                <td className="px-4 py-2">{u.email}</td>
+                <td className="px-4 py-2">{u.role}</td>
+                <td className="px-4 py-2">
                   <select
                     value={u.role}
                     onChange={(e) => updateRole(u._id, e.target.value)}
-                    className="px-4 py-2 bg-gray-700 text-gray-200 border border-gray-600 rounded-lg focus:ring-2 focus:ring-lime-400"
+                    className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white"
                   >
                     <option value="student">Student</option>
                     <option value="teacher">Teacher</option>
@@ -229,6 +223,31 @@ export default function AdminUsers() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      <div className="mt-6 flex justify-center gap-2">
+        {Array.from({ length: totalPages }, (_, i) => (
+          <button
+            key={i + 1}
+            onClick={() => setPage(i + 1)}
+            className={`px-4 py-2 rounded ${
+              page === i + 1
+                ? "bg-lime-400 text-black"
+                : "bg-gray-700 text-white hover:bg-lime-500"
+            }`}
+          >
+            {i + 1}
+          </button>
+        ))}
+      </div>
+
+      {/* Back Button */}
+      <button
+        onClick={() => navigate("/")}
+        className="mt-6 px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+      >
+        Back to Home
+      </button>
     </div>
   );
 }
