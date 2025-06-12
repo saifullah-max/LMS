@@ -142,16 +142,8 @@ router.get(
   authorizeRoles("admin"),
   async (req, res) => {
     try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const skip = (page - 1) * limit;
-
-      const [users, total] = await Promise.all([
-        User.find().select("-password").skip(skip).limit(limit),
-        User.countDocuments(),
-      ]);
-
-      res.json({ users, total, page, limit });
+      const users = await User.find().select("-password");
+      res.json(users);
     } catch (err) {
       console.error(err);
       res.status(500).json({ msg: "Failed to list users" });
