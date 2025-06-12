@@ -10,3 +10,5 @@ backend/uploads/
 ./backend/uploads
 
 backend/tests/
+config.bat
+node_modules
