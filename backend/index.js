@@ -17,7 +17,7 @@ const errorHandler = require("./middleware/errorHandler");
 const adminRoutes = require("./routes/admin");
 const offlineRoutes = require("./routes/offline");
 const userRoute = require("./routes/users");
-
+const assignmentReminder = require("./scheduler/assignmentReminder");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 // const mongoSanitize = require("express-mongo-sanitize");
@@ -41,10 +41,7 @@ const limiter = rateLimit({
 app.use(helmet());
 app.use(limiter);
 app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
+  cors()
 );
 
 app.use(express.json());
@@ -66,6 +63,7 @@ app.get("/", (req, res) => {
 });
 
 // Mount your routers
+assignmentReminder();
 app.use("/api/auth", authRoutes);
 app.use("/api/quizzes", quizRoutes);
 app.use("/api/courses", courseRoutes);
